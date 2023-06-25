@@ -16,8 +16,8 @@
 #define FB		NULL
 
 /* foreground and background colors */
-#define FGCOLOR		COLOR0
-#define BGCOLOR		COLORF
+#define FGCOLOR		COLORF
+#define BGCOLOR		COLOR0
 
 /* where to write the screen shot */
 #define SCRSHOT		"/tmp/scr"
