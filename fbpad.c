@@ -28,6 +28,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <linux/vt.h>
+#include <linux/fb.h>
 #include "conf.h"
 #include "fbpad.h"
 #include "draw.h"
@@ -40,6 +41,8 @@
 #define TERMSNAP(i)	(strchr(TAGS_SAVED, tags[(i) % NTAGS]))
 
 int verbose;
+static struct fb_bitfield rgba[4];
+struct fb_bitfield *pixel_format;
 
 static char tags[] = TAGS;
 static struct term *terms[NTERMS];
@@ -423,18 +426,64 @@ static void signalsetup(void)
 	ioctl(0, VT_SETMODE, &vtm);
 }
 
+static void usage(void)
+{
+	fprintf(stderr,
+	"usage: fbpad [-v] [--rgba FORMAT] [COMMAND]\n"
+	"\n"
+	"  -v             print diagnostic info\n"
+	"  --rgba FORMAT  override pixel format (see below)\n"
+	"\n"
+	"Normally pixel format is read with FBIOGET_VSCREENINFO ioctl, but it may lie.\n"
+	"Override format with --rgba, where FORMAT is the same as output by fbset:\n"
+	"\n"
+	"  Rl/Ro,Gl/Go,Bl/Bo,Al/Ao\n"
+	"  Rl, Gl, Bl, Al - length in bits of red, green, blue, alpha component\n"
+	"  Ro, Go, Bo, Ao - offset in bits of red, green, blue, alpha component\n"
+	"  0/0 means color component is not used (e.g. alpha)\n"
+	"  E.g. 8/0,8/8,8/16,8/24 - pixels are 4-byte sequences of RGBA\n"
+	"       8/16,8/8,8/0,8/24 - pixels are 4-byte sequences of BGRA\n"
+	"       8/16,8/8,8/0,0/0  - pixels are 3-byte sequences of BGR (depth 24)\n"
+	"                           or 4-byte BGRA (depth 32) with alpha ignored\n");
+	exit(1);
+}
+
+static char **parse_args(char **argv)
+{
+	++argv;
+	for (; argv[0] && argv[0][0] == '-'; ++argv) {
+		if (!strcmp(argv[0], "-v"))
+			verbose = 1;
+		else if (!strcmp(argv[0], "--rgba")) {
+			int ret;
+			++argv;
+			if (!argv[0]) {
+				fprintf(stderr, "--rgba is missing FORMAT\n");
+				usage();
+			}
+			ret = sscanf(argv[0], "%d/%d,%d/%d,%d/%d,%d/%d",
+				&rgba[0].length, &rgba[0].offset,
+				&rgba[1].length, &rgba[1].offset,
+				&rgba[2].length, &rgba[2].offset,
+				&rgba[3].length, &rgba[3].offset);
+			if (ret != 8) {
+				fprintf(stderr, "--rgba FORMAT is incorrect\n");
+				usage();
+			}
+			pixel_format = rgba;
+		} else
+			usage();
+	}
+	return argv;
+}
+
 int main(int argc, char **argv)
 {
 	char *hide = "\x1b[2J\x1b[H\x1b[?25l";
 	char *show = "\x1b[?25h";
-	char **args = argv + 1;
 	int i;
 
-	for (; args[0] && args[0][0] == '-'; args++) {
-		if (!strcmp(args[0], "-v"))
-			verbose = 1;
-	}
-
+	argv = parse_args(argv);
 	if (fb_init(getenv("FBDEV"))) {
 		fprintf(stderr, "fbpad: failed to initialize the framebuffer\n");
 		return 1;
@@ -448,7 +497,7 @@ int main(int argc, char **argv)
 	write(1, hide, strlen(hide));
 	signalsetup();
 	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
-	mainloop(args[0] ? args : NULL);
+	mainloop(argv[0] ? argv : NULL);
 	write(1, show, strlen(show));
 	for (i = 0; i < NTERMS; i++)
 		term_free(terms[i]);

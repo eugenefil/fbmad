@@ -14,6 +14,7 @@ int isdw(int c);
 int iszw(int c);
 
 extern int verbose;
+extern struct fb_bitfield *pixel_format;
 
 /* term.c */
 struct term *term_make(void);

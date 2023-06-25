@@ -117,6 +117,21 @@ int fb_init(char *dev)
 		vinfo.blue.offset, vinfo.blue.length,
 		vinfo.transp.offset, vinfo.transp.length);
 	}
+	if (pixel_format) {
+		fprintf(stderr, "override pixel format with:\n"
+		"\tred:\t{ offset: %2d, length: %d }\n"
+		"\tgreen:\t{ offset: %2d, length: %d }\n"
+		"\tblue:\t{ offset: %2d, length: %d }\n"
+		"\talpha:\t{ offset: %2d, length: %d }\n",
+		pixel_format[0].offset, pixel_format[0].length,
+		pixel_format[1].offset, pixel_format[1].length,
+		pixel_format[2].offset, pixel_format[2].length,
+		pixel_format[3].offset, pixel_format[3].length);
+		vinfo.red = pixel_format[0];
+		vinfo.green = pixel_format[1];
+		vinfo.blue = pixel_format[2];
+		vinfo.transp = pixel_format[3];
+	}
 	if (ioctl(fd, FBIOGET_FSCREENINFO, &finfo) < 0)
 		goto failed;
 	if (verbose) {
