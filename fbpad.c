@@ -32,7 +32,6 @@
 #include "draw.h"
 
 #define CTRLKEY(x)	((x) - 96)
-#define POLLFLAGS	(POLLIN | POLLHUP | POLLERR | POLLNVAL)
 #define NTAGS		(sizeof(tags) - 1)
 #define NTERMS		(NTAGS * 2)
 #define TERMOPEN(i)	(term_fd(terms[i]))
@@ -44,17 +43,16 @@ struct fb_bitfield *pixel_format;
 
 static char tags[] = TAGS;
 static struct term *terms[NTERMS];
+static struct term *term;
 static int tops[NTAGS];		/* top terms of tags */
 static int split[NTAGS];	/* terms are shown together */
 static int ctag;		/* current tag */
 static int ltag;		/* the last tag */
 static int exitit;
-static int hidden;		/* do not touch the framebuffer */
 static int locked;
 static int taglock;		/* disable tag switching */
 static char pass[1024];
 static int passlen;
-static int cmdmode;		/* execute a command and exit */
 
 static int readchar(void)
 {
@@ -162,7 +160,7 @@ static int t_hideshow(int oidx, int save, int nidx, int show)
 /* set cterm() */
 static void t_set(int n)
 {
-	if (cterm() == n || cmdmode)
+	if (cterm() == n)
 		return;
 	if (taglock && ctag != n % NTAGS)
 		return;
@@ -315,59 +313,29 @@ static void directkey(void)
 		term_send(c);
 }
 
-static void peepterm(int termid)
-{
-	int visible = !hidden && ctag == (termid % NTAGS) && split[ctag];
-	if (termid != cterm())
-		t_hideshow(cterm(), 0, termid, visible);
-}
-
-static void peepback(int termid)
-{
-	if (termid != cterm())
-		t_hideshow(termid, 0, cterm(), !hidden);
-}
-
 static int pollterms(void)
 {
-	struct pollfd ufds[NTERMS];
-	int term_idx[NTERMS];
-	int i;
-	int n = 0;
-	for (i = 0; i < NTERMS; i++) {
-		if (TERMOPEN(i)) {
-			ufds[n].fd = term_fd(terms[i]);
-			ufds[n].events = POLLIN;
-			term_idx[n++] = i;
-		}
-	}
-	if (poll(ufds, n, 1000) < 1)
+	struct pollfd pfd;
+	pfd.fd = term_fd(term);
+	pfd.events = POLLIN;
+	if (poll(&pfd, 1, 1000) < 1)
 		return 0;
-	for (i = 0; i < n; i++) {
-		if (!(ufds[i].revents & POLLFLAGS))
-			continue;
-		peepterm(term_idx[i]);
-		if (ufds[i].revents & POLLIN) {
-			term_read();
-		} else {
-			scr_free(term_idx[i]);
-			term_end();
-			if (cmdmode)
-				exitit = 1;
-		}
-		peepback(term_idx[i]);
+	if (pfd.revents & POLLIN) {
+		term_read();
+	} else {
+		scr_free(0);
+		term_end();
+		exitit = 1;
 	}
 	return 0;
 }
 
 static void mainloop(char **args)
 {
-	term_load(terms[cterm()], 1);
+	char *shell[32] = SHELL;
+	term_load(term, 1);
 	term_redraw(1);
-	if (args) {
-		cmdmode = 1;
-		t_exec(args, 0);
-	}
+	term_exec(args ? args : shell, 0);
 	while (!exitit)
 		if (pollterms())
 			break;
@@ -438,8 +406,6 @@ static char **parse_args(char **argv)
 
 int main(int argc, char **argv)
 {
-	int i;
-
 	argv = parse_args(argv);
 	if (fb_init(getenv("FBDEV"))) {
 		fprintf(stderr, "fbpad: failed to initialize the framebuffer\n");
@@ -449,12 +415,10 @@ int main(int argc, char **argv)
 		fprintf(stderr, "fbpad: cannot find fonts\n");
 		return 1;
 	}
-	for (i = 0; i < NTERMS; i++)
-		terms[i] = term_make();
 	signal(SIGCHLD, signalreceived);
+	term = term_make();
 	mainloop(argv[0] ? argv : NULL);
-	for (i = 0; i < NTERMS; i++)
-		term_free(terms[i]);
+	term_free(term);
 	pad_free();
 	scr_done();
 	fb_free();
