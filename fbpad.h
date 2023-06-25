@@ -4,7 +4,6 @@
 #define MAX(a, b)	((a) > (b) ? (a) : (b))
 #define LEN(a)		(sizeof(a) / sizeof((a)[0]))
 
-#define ESC		27		/* escape code */
 #define NHIST		128		/* scrolling history lines */
 
 /* isdw.c */
@@ -57,9 +56,3 @@ void font_free(struct font *font);
 int font_rows(struct font *font);
 int font_cols(struct font *font);
 int font_bitmap(struct font *font, void *dst, int c);
-
-/* scrsnap.c */
-void scr_snap(int idx);
-int scr_load(int idx);
-void scr_free(int idx);
-void scr_done(void);

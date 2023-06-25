@@ -1,11 +1,4 @@
-/* list of tags */
-#define TAGS		"xnlhtr01uiva "
-#define TAGS_SAVED	""
-
-/* programs mapped to m-c, m-m, m-e */
-#define SHELL		{"sh"}
-#define EDITOR		{"vi"}
-#define MAIL		{"mailx", "-f", "+inbox"}
+#define SHELL		{"/bin/sh"}
 
 /* TERM variable for launched programs */
 #define TERM		"linux"
@@ -21,9 +14,6 @@
 
 /* where to write the screen shot */
 #define SCRSHOT		"/tmp/scr"
-
-/* lock command password; NULL disables locking */
-#define PASS		NULL
 
 /* optimized version of fb_val() */
 #define FB_VAL(r, g, b)	fb_val((r), (g), (b))
