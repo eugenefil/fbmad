@@ -38,7 +38,10 @@ struct font *font_open(char *path)
 {
 	struct font *font;
 	struct tinyfont head;
-	int fd = open(path, O_RDONLY);
+	int fd;
+	if (verbose)
+		fprintf(stderr, "open font %s\n", path);
+	fd = open(path, O_RDONLY);
 	if (fd < 0 || read(fd, &head, sizeof(head)) != sizeof(head)) {
 		close(fd);
 		return NULL;

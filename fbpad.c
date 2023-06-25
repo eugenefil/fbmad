@@ -39,6 +39,8 @@
 #define TERMOPEN(i)	(term_fd(terms[i]))
 #define TERMSNAP(i)	(strchr(TAGS_SAVED, tags[(i) % NTAGS]))
 
+int verbose;
+
 static char tags[] = TAGS;
 static struct term *terms[NTERMS];
 static int tops[NTAGS];		/* top terms of tags */
@@ -427,6 +429,12 @@ int main(int argc, char **argv)
 	char *show = "\x1b[?25h";
 	char **args = argv + 1;
 	int i;
+
+	for (; args[0] && args[0][0] == '-'; args++) {
+		if (!strcmp(args[0], "-v"))
+			verbose = 1;
+	}
+
 	if (fb_init(getenv("FBDEV"))) {
 		fprintf(stderr, "fbpad: failed to initialize the framebuffer\n");
 		return 1;
@@ -440,8 +448,6 @@ int main(int argc, char **argv)
 	write(1, hide, strlen(hide));
 	signalsetup();
 	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
-	while (args[0] && args[0][0] == '-')
-		args++;
 	mainloop(args[0] ? args : NULL);
 	write(1, show, strlen(show));
 	for (i = 0; i < NTERMS; i++)

@@ -248,6 +248,24 @@ static int readpty(void)
 	if (!ptylen && errno == EAGAIN && !waitpty(100))
 		ptylen = read(term->fd, ptybuf, PTYLEN);
 	ptycur = 1;
+	if (verbose) {
+		fprintf(stderr, "read %d bytes from pty:\n", ptylen);
+		for (int start = 0; start < ptylen;) {
+			int pad, end = start + 16;
+			if (end > ptylen)
+				end = ptylen;
+			fprintf(stderr, "%08x: ", start);
+			for (int i = start; i < end; ++i)
+				fprintf(stderr, "%02x ", (int)ptybuf[i]);
+			pad = (16 - (end - start)) * 3 + 1;
+			fprintf(stderr, "%*s", pad, "");
+			for (; start < end; ++start) {
+				int c = ptybuf[start];
+				fputc(isprint(c) ? c : '.', stderr);
+			}
+			fprintf(stderr, "\n");
+		}
+	}
 	return ptylen > 0 ? (unsigned char) ptybuf[0] : -1;
 }
 
@@ -356,7 +374,10 @@ static int _openpty(int *master, int *slave)
 	if (ioctl(*master, TIOCGPTN, &ptyno) == -1)
 		return -1;
 	sprintf(name, "/dev/pts/%d", ptyno);
-	*slave = open(name, O_RDWR | O_NOCTTY);
+	if (verbose)
+		fprintf(stderr, "open slave pty %s\n", name);
+	if ((*slave = open(name, O_RDWR | O_NOCTTY)) == -1)
+		return -1;
 	return 0;
 }
 
@@ -436,6 +457,12 @@ void term_exec(char **args, int swsig)
 		envset(envp, pad_fbdev());
 		if (swsig)
 			envset(envp, pgid);
+		if (verbose) {
+			fprintf(stderr, "exec");
+			for (char **argv = args; *argv; ++argv)
+				fprintf(stderr, " %s", *argv);
+			fprintf(stderr, "\n");
+		}
 		tio_login(slave);
 		close(master);
 		execvep(args[0], args, envp);

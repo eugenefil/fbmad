@@ -13,6 +13,8 @@
 int isdw(int c);
 int iszw(int c);
 
+extern int verbose;
+
 /* term.c */
 struct term *term_make(void);
 void term_free(struct term *term);

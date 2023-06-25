@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include "draw.h"
+#include "fbpad.h"
 
 #define MIN(a, b)	((a) < (b) ? (a) : (b))
 #define MAX(a, b)	((a) > (b) ? (a) : (b))
@@ -104,8 +105,28 @@ int fb_init(char *dev)
 		goto failed;
 	if (ioctl(fd, FBIOGET_VSCREENINFO, &vinfo) < 0)
 		goto failed;
+	if (verbose) {
+		fprintf(stderr,
+		"fb_var_screeninfo:\n"
+		"\tred:\t{ offset: %2d, length: %d }\n"
+		"\tgreen:\t{ offset: %2d, length: %d }\n"
+		"\tblue:\t{ offset: %2d, length: %d }\n"
+		"\talpha:\t{ offset: %2d, length: %d }\n",
+		vinfo.red.offset, vinfo.red.length,
+		vinfo.green.offset, vinfo.green.length,
+		vinfo.blue.offset, vinfo.blue.length,
+		vinfo.transp.offset, vinfo.transp.length);
+	}
 	if (ioctl(fd, FBIOGET_FSCREENINFO, &finfo) < 0)
 		goto failed;
+	if (verbose) {
+		fprintf(stderr,
+		"fb_fix_screeninfo:\n"
+		"\ttype: %d\n"
+		"\tvisual: %d\n"
+		"\tline_length: %d\n",
+		finfo.type, finfo.visual, finfo.line_length);
+	}
 	fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
 	bpp = (vinfo.bits_per_pixel + 7) >> 3;
 	fb = mmap(NULL, fb_len(), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
