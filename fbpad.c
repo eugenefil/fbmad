@@ -25,9 +25,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
-#include <termios.h>
 #include <unistd.h>
-#include <linux/vt.h>
 #include <linux/fb.h>
 #include "conf.h"
 #include "fbpad.h"
@@ -332,12 +330,10 @@ static void peepback(int termid)
 
 static int pollterms(void)
 {
-	struct pollfd ufds[NTERMS + 1];
-	int term_idx[NTERMS + 1];
+	struct pollfd ufds[NTERMS];
+	int term_idx[NTERMS];
 	int i;
-	int n = 1;
-	ufds[0].fd = 0;
-	ufds[0].events = POLLIN;
+	int n = 0;
 	for (i = 0; i < NTERMS; i++) {
 		if (TERMOPEN(i)) {
 			ufds[n].fd = term_fd(terms[i]);
@@ -347,11 +343,7 @@ static int pollterms(void)
 	}
 	if (poll(ufds, n, 1000) < 1)
 		return 0;
-	if (ufds[0].revents & (POLLFLAGS & ~POLLIN))
-		return 1;
-	if (ufds[0].revents & POLLIN)
-		directkey();
-	for (i = 1; i < n; i++) {
+	for (i = 0; i < n; i++) {
 		if (!(ufds[i].revents & POLLFLAGS))
 			continue;
 		peepterm(term_idx[i]);
@@ -370,11 +362,6 @@ static int pollterms(void)
 
 static void mainloop(char **args)
 {
-	struct termios oldtermios, termios;
-	tcgetattr(0, &termios);
-	oldtermios = termios;
-	cfmakeraw(&termios);
-	tcsetattr(0, TCSAFLUSH, &termios);
 	term_load(terms[cterm()], 1);
 	term_redraw(1);
 	if (args) {
@@ -384,7 +371,6 @@ static void mainloop(char **args)
 	while (!exitit)
 		if (pollterms())
 			break;
-	tcsetattr(0, 0, &oldtermios);
 }
 
 static void signalreceived(int n)
@@ -392,38 +378,11 @@ static void signalreceived(int n)
 	if (exitit)
 		return;
 	switch (n) {
-	case SIGUSR1:
-		hidden = 1;
-		t_hide(cterm(), 1);
-		ioctl(0, VT_RELDISP, 1);
-		break;
-	case SIGUSR2:
-		hidden = 0;
-		fb_cmap();
-		if (t_show(cterm(), 2) == 3 && split[ctag]) {
-			t_hideshow(cterm(), 0, aterm(cterm()), 3);
-			t_hideshow(aterm(cterm()), 0, cterm(), 1);
-		}
-		break;
 	case SIGCHLD:
 		while (waitpid(-1, NULL, WNOHANG) > 0)
 			;
 		break;
 	}
-}
-
-static void signalsetup(void)
-{
-	struct vt_mode vtm;
-	vtm.mode = VT_PROCESS;
-	vtm.waitv = 0;
-	vtm.relsig = SIGUSR1;
-	vtm.acqsig = SIGUSR2;
-	vtm.frsig = 0;
-	signal(SIGUSR1, signalreceived);
-	signal(SIGUSR2, signalreceived);
-	signal(SIGCHLD, signalreceived);
-	ioctl(0, VT_SETMODE, &vtm);
 }
 
 static void usage(void)
@@ -479,8 +438,6 @@ static char **parse_args(char **argv)
 
 int main(int argc, char **argv)
 {
-	char *hide = "\x1b[2J\x1b[H\x1b[?25l";
-	char *show = "\x1b[?25h";
 	int i;
 
 	argv = parse_args(argv);
@@ -494,11 +451,8 @@ int main(int argc, char **argv)
 	}
 	for (i = 0; i < NTERMS; i++)
 		terms[i] = term_make();
-	write(1, hide, strlen(hide));
-	signalsetup();
-	fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
+	signal(SIGCHLD, signalreceived);
 	mainloop(argv[0] ? argv : NULL);
-	write(1, show, strlen(show));
 	for (i = 0; i < NTERMS; i++)
 		term_free(terms[i]);
 	pad_free();
