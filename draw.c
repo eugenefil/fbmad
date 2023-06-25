@@ -12,15 +12,15 @@
 #define MAX(a, b)	((a) > (b) ? (a) : (b))
 #define NLEVELS		(1 << 8)
 
-static struct fb_var_screeninfo vinfo;	/* linux-specific FB structure */
-static struct fb_fix_screeninfo finfo;	/* linux-specific FB structure */
-static char fbdev[1024];		/* FB device */
-static int fd;				/* FB device file descriptor */
-static void *fb;			/* mmap()ed FB memory */
-static int bpp;				/* bytes per pixel */
-static int nr, ng, nb;			/* color levels */
-static int rl, rr, gl, gr, bl, br;	/* shifts per color */
-static int xres, yres, xoff, yoff;	/* drawing region */
+static struct fb_var_screeninfo vinfo;		/* linux-specific FB structure */
+static struct fb_fix_screeninfo finfo;		/* linux-specific FB structure */
+static char fbdev[1024];			/* FB device */
+static int fd;					/* FB device file descriptor */
+static void *fb;				/* mmap()ed FB memory */
+static int bpp;					/* bytes per pixel */
+static int nr, ng, nb, na;			/* color levels */
+static int rl, rr, gl, gr, bl, br, al, ar;	/* shifts per color */
+static int xres, yres, xoff, yoff;		/* drawing region */
 
 static int fb_len(void)
 {
@@ -79,12 +79,15 @@ static void init_colors(void)
 	nr = 1 << vinfo.red.length;
 	ng = 1 << vinfo.blue.length;
 	nb = 1 << vinfo.green.length;
+	na = 1 << vinfo.transp.length;
 	rr = 8 - vinfo.red.length;
 	rl = vinfo.red.offset;
 	gr = 8 - vinfo.green.length;
 	gl = vinfo.green.offset;
 	br = 8 - vinfo.blue.length;
 	bl = vinfo.blue.offset;
+	ar = 8 - vinfo.transp.length;
+	al = vinfo.transp.offset;
 }
 
 int fb_init(char *dev)
@@ -142,7 +145,8 @@ void *fb_mem(int r)
 
 unsigned fb_val(int r, int g, int b)
 {
-	return ((r >> rr) << rl) | ((g >> gr) << gl) | ((b >> br) << bl);
+	int a = 0xff;
+	return ((r >> rr) << rl) | ((g >> gr) << gl) | ((b >> br) << bl) | ((a >> ar) << al);
 }
 
 char *fb_dev(void)
