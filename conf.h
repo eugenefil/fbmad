@@ -4,7 +4,7 @@
 #define TERM		"linux"
 
 /* tinyfont files for regular, italic, and bold fonts */
-#define FR		"/usr/share/fbpad/courr.tf"
+#define FR		"default.tf"
 #define FI		NULL
 #define FB		NULL
 
